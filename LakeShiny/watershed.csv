@@ -1,0 +1,18 @@
+Cat,Type,CoLo,CoLk,CoHi,Area
+Ag1,Agriculture,5,129,230,1.67
+Ag2,Orchard Vineyard,40,40,200,4.95
+Ag3,Field Crop,44,64.5,111.25,1.72
+Urban1,Rural Residential,19,43,270,7.58
+Urban2,Low-Intensity Development,21,35,35,13.06
+Urban3,High-Intensity Development,66,56,110,3.24
+Urban4,Commercial Impervious,66,110,485,1.89
+Urban5,Industrial Impervious,66,75,417,2.62
+Urban6,Institutional/Office Impervious,66,88,163,2.8
+Roadway,Freeway Impervious,35,56,75,0.96
+Roadway,Road Impervious,35,56,75,7.12
+Other1,Barren,66,75,75,0.27
+Other2,Golf Course,25,76,386,1.62
+Other3,Park/Open Space,8.1,20,25,10.19
+Other4,Vacant/Undeveloped,8.1,20,25,14.34
+Other 5,Water,0,0,0,0.25
+Precip,Precipitation,35.03,66.31,125.82,0

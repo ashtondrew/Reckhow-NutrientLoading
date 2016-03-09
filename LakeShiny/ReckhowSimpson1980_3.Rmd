@@ -1,0 +1,243 @@
+---
+title: "Lake Phosphorus Levels"
+author: "C. A. Drew, [KDV Decision Analysis LLC](http://cashtondrew.com)"
+date: "December 27, 2015"
+output: html_document
+runtime: shiny
+---
+
+## Introduction
+
+[Reckhow and Simpson (1980)](http://www.nrcresearchpress.com/doi/abs/10.1139/f80-184#.VoAz11mqFj8) provide a method to predict lake phosphorus concentrations and, thereby, assess lake trophic state.  An important contribution of their work was the inclusion of nonparametric error analysis.  By including this uncertainty estimate the authors provide a key measure of the value of the information and facilitate risk assessment during the application of model results.
+
+This type of model is a great candidate for interactive data visualizations in R.  The 1980 publication presents the results in static tables and figures. A previous update to the model, built in Excel by Reckhow and Hession, provides interactive spreadsheets and tables.  I used the  data in Reckhow and Simpson (1980) to demonstrate how the same model might be presented in R to facilitate exploration and application of their results.
+
+It is important to note that this model only applies to north temperate lakes. Table 1 in Reckhow and Simpson (1980) provides a set of minimum and maximum values for phosphorus concentration, phosphorus loading, and areal water loading.  The model is only intended for lakes meeting these criteria.
+
+*Reckhow KH, Simpson JT (1980) A procedure using modeling and error analysis for the prediction of lake phosphorus concentration from land use information.  Canadian Journal of Fisheries and Aquatic Sciences 37(9):1439-1448. DOI: 10.1139/f80-184*
+
+## Data Preparation
+
+#### Code Book
+
+```{r code.book, echo=FALSE}
+Code.Book <- data.frame(Variable=c("P", "L", "qs", "vs", "Q", "Ad", "Ao", "r", "Pr", "EcFr(Hi,Lk,Lo)", "EcAg(Hi,Lk,Lo)", "EcUr(Hi,Lk,Lo)", "EcPr(Hi,Lk,Lo)", "EcSt(Hi,Lk,Lo)", "AreaFr", "AreaAg", "AreaUr", "NCap", "SR(Hi,Lk,Lo)", "PSI(Hi,Lk,Lo)", "Ind(P,S)", "Days(P,S)", "Units(P,S)", "M", "smlog", "sm(pos,neg)", "sL(pos,neg)", "sT(pos,neg)", "h", "pbounded", "limit(up/lo)"),
+Definition=c("phosphorus concentration", "phosphorus loading", "areal water loading", "apparent phosphorus settling velocity", "inflow water volume to lake", "watershed area", "lake surface area", "total annual unit runoff", "mean annual net precipitation", "export coefficient for forest land (high, most likely, low)", "export coefficient for agricultural land (high, most likely, low)", "export coefficient for urban area (high, most likely, low)", "export coefficient for precipitation (high, most likely, low)", "export coefficient for septic tanks (high, most likely, low)", "area of forest land", "area of agricultural land", "area of urban land", "number of capita years in watershed serviced by septic tank/tile filed systems impacting the lake", "soil retention coefficient (high, most likely, low)", "point source input (high, most likely, low)", "average number of persons per living unit (Permanent, Seasonal)", "number of days spent at unit per year (Permanent, Seasonal)", "number of living units (Permanent, Seasonal)", "total phosphorus mass loading", "log model error", "model error (pos,neg)", "loading error (pos,neg)", "uncertainty (pos,neg)", "multiplier constant", "probability that the confidence limits contain the true value", "confidence limits (up,lo)"),
+Units=c("mg/L", "g/m2/yr", "m/yr", "m/yr", "10^6 m3/yr", "10^6 m2", "10^6 m2", "m/yr", "m/yr", "kg/10^6 m2/yr", "kg/10^6 m2/yr", "kg/10^6 m2/yr", "kg/10^6 m2/yr", "kg/(capita/yr)/yr", "10^6 m2", "10^6 m2", "10^6 m2", "N", "dimensionless", "kg/yr", "N", "N", "N", "kg/yr", "logarithmic units", "mg/L", "mg/L", "mg/L", "unitless", "probability", "mg/L" ))
+
+library(knitr)
+kable(Code.Book)
+```
+
+At present, only the Higgins Lake data have been entered into the data tables.  This code requires five input data frames as follows:
+
+ 1. lake: Name, Ad, r, Ao, Pr
+ 2. area: Name, For, Agr, Urb
+ 3. coHi: Name, ECFrHi, EcAgHi, EcUrHi, EcPrHi, EcStHi, SRHi, PSIHi
+ 4. coLk: Name, ECFrLk, EcAgLk, EcUrLk, EcPrLk, EcStLk, SRLk, PSILk
+ 5. coLo: Name, ECFrLo, EcAgLo, EcUrLo, EcPrLo, EcStLo, SRLo, PSILo
+
+The data could be maintained in  single table, but the assumption is that a database design could be implemented and the separate data.frmes represent data chunks pulled from different sources and likely maintained (updated) on different schedules by different individuals.  The design is also chosen to expedidite analysis later.
+
+```{r tidy.data}
+# TODO: change to read external csv files and select lake data by lake name
+lake <- read.csv("lake.csv")
+area <- read.csv("area.csv")
+coHi <- read.csv("coHi.csv")
+coLk <- read.csv("coLk.csv")
+coLo <- read.csv("coLo.csv")
+pop <- read.csv("pop.csv")
+# lake <- data.frame(Name="Higgins", Ad=87.41, r=0.2415, Ao=38.4, Pr=0.254)
+# area <- data.frame(Name="Higgins", For=83.47, Agr=0.16, Urb=3.78)
+# coHi <- data.frame(Name="Higgins", EcFrHi=40, EcAgHi=80, EcUrHi=150, EcPrHi=50, EcStHi=1, SRHi=0.5, PSIHi=0)
+# coLk <- data.frame(Name="Higgins", EcFrLk=20, EcAgLk=30, EcUrLk=90,EcPrLk=30, EcStLk=0.6, SRLk=0.75, PSILk=0)
+# coLo <- data.frame(Name="Higgins", EcFrLo=2, EcAgLo=10, EcUrLo=50, EcPrLo=15, EcStLo=0.3, SRLo=0.95, PSILo=0)
+# # NB: hi-lo SR values appear reversed because will be 1-value in equations
+# pop <- data.frame(Name="Higgins", IndP=0, DaysP=0, UnitsP=0, IndS=3.5, DaysS=60, UnitsS=1000)
+# TODO: add high and low future scenarios
+# TODO: add input error check to confirm that input parameters conform to restrictions in Table 1.
+```
+
+## Data Analysis to Calculate Lake Phosphorus Concentration
+
+Steps 1 through 3 in Reckhow and Simpson (1980)
+
+#### Estimate Areal Water Loading
+
+```{r, areal.water.loading}
+Q <- (lake$Ad*lake$r)+(lake$Ao*lake$Pr)
+qs <- Q/lake$Ao
+```
+
+The total inflow volume of water to lake `r lake$Name` is `r round(Q,2)` 10^6^ m^3^/yr and the estimated areal water loading is `r round(qs,2)`.
+
+#### Estimate Export Coefficients
+
+High, low, and most likely coefficient values estimated from literature review and best professional judgement are in the `coHi`, `CoLk`, and `CoLo` dataframes.
+
+#### Estimate Number of Per Capita years
+```{r, export coefficients}
+NCap <- (pop$IndP*(pop$DaysP/365)*pop$UnitsP)+(pop$IndS*(pop$DaysS/365)*pop$UnitsS)
+```
+
+`r lake$Name` has `r pop$UnitsS` seasonal homes and `r pop$UnitsP` permanent homes.  The estimated number of per capita years is `r round(NCap,2)`.
+
+#### Estimate Soil Retention Coefficient
+
+High, low, and most likely coefficient values estimated from literature review and best professional judgement are in the `coHi`, `CoLk`, and `CoLo` dataframes.
+
+#### Estimate Point Source Input
+
+These were 0 kg/yr in the published model for the study lake because it had no known point source inputs.  If point sources were present, then a High, Low, and Most Likey value would need to be provided.  These estimates would come from literature review and best professional judgement and would be provided via the `coHi`, `CoLk`, and `CoLo` dataframes.
+
+#### Calculate Total Phosphorus Mass Loading
+```{r p.mass.loading, fig.width=4}
+MHi <- (area$For*coHi$EcFrHi)+(area$Agr*coHi$EcAgHi)+(area$Urb*coHi$EcUrHi)+(lake$Ao*coHi$EcPrHi)+(NCap*coHi$EcStHi*(1-coHi$SRHi))+coHi$PSIHi
+
+MLk <- (area$For*coLk$EcFrLk)+(area$Agr*coLk$EcAgLk)+(area$Urb*coLk$EcUrLk)+(lake$Ao*coLk$EcPrLk)+(NCap*coLk$EcStLk*(1-coLk$SRLk))+coLk$PSILk
+
+MLo <- (area$For*coLo$EcFrLo)+(area$Agr*coLo$EcAgLo)+(area$Urb*coLo$EcUrLo)+(lake$Ao*coLo$EcPrLo)+(NCap*coLo$EcStLo*(1-coLo$SRLo))+coLo$PSILo
+#TODO: vectorize this code for efficiency
+
+barplot(c(MHi,MLk,MLo), main="Total Phosphorus Mass Loading", 
+        ylab="kg/yr", xlab="Scenario", col="blue",
+        names.arg=c("High", "Most Likely", "Low"))
+```
+
+The mass loading estimates for `r lake$Name` are: High = `r round(MHi,2)`, Most Likely = `r round(MLk,2)`, and Low = `r round(MLo,2)`.
+
+### Calculate Annual Areal Phosphorus Loading
+```{r p.areal.loading, fig.width=4}
+LHi <- (MHi/lake$Ao)*10^-3
+LLk <- MLk/lake$Ao*10^-3
+LLo <- MLo/lake$Ao*10^-3
+#TODO: vectorize this code for efficiency
+
+barplot(c(LHi,LLk,LLo), main="Annual Areal Phosphorus Loading", 
+        ylab="g/m^2/yr", xlab="Scenario", col="blue",
+        names.arg=c("High", "Most Likely", "Low"))
+```
+
+The areal loading estimates for `r lake$Name` are: High = `r round(LHi,2)`, Most Likely = `r round(LLk,2)`, and Low = `r round(LLo,2)`.
+
+### Calculate Lake Phosphorus Concentration
+```{r p.lake, fig.width=4}
+PHi<- LHi/(11.6+(1.2*qs))
+PLk<- LLk/(11.6+(1.2*qs))
+PLo<- LLo/(11.6+(1.2*qs))
+#TODO: vectorize this code for efficiency
+
+barplot(c(PHi,PLk,PLo), main="Lake Phosphorus Concentration", 
+        ylab="mg/L", xlab="Scenario", col="blue",
+        names.arg=c("High", "Most Likely", "Low"))
+```
+
+The phosphorus concentration estimates for `r lake$Name` are: High = `r round(PHi,2)`, Most Likely = `r round(PLk,2)`, and Low = `r round(PLo,2)`.
+
+## Data Analysis of Model Uncertainty
+
+Step 4 in Reckhow and Simpson (1980)
+
+#### Calculate Log of Most-Likely Phosphorus Value
+```{r log.p}
+logPLk <- log10(PLk)
+```
+
+#### Estimate Model and Loading Errors
+
+This calculation requires the value `smlog`, model error, as one of the inputs.  It is not clear how the value, 0.128, was obtained.
+
+```{r error.uncertainty.confidence}
+#Positive and negative model errors
+smpos <- (10^(logPLk+0.128))-PLk
+smneg <- (10^(logPLk-0.128))-PLk
+
+#Positive and negative loading errors
+sLpos <- (PHi-PLk)/2
+sLneg <- (PLk-PLo)/2
+
+#Positive and negative uncertainty
+sTpos <- sqrt((smpos)^2+(sLpos)^2)
+sTneg <- sqrt((smneg)^2+(sLneg)^2)
+
+# Confidence limits
+# multiple of prediction error, h=1=55% bounds, h=2=90% bounds
+h = 2 
+pbounded <- 1-(1/(2.25*h^2))
+limitlo <- PLk-(h*sTneg)
+limitup <- PLk+(h*sTpos)
+```
+
+There is a 90% probability that the true phosphorus concentration in `r lake$Name` falls between `r format(round(limitlo, 4), scientific=FALSE)` mg/L and `r format(round(limitup, 4), scientific=FALSE)` mg/L.  
+
+#### Trophic State Determination
+```{r trophic.state}
+#determine where lower bound falls
+if (limitlo<0.010){
+    trophlo <- "oligotrophic"
+} else if(0.01<limitlo & limitlo<0.020){
+        trophlo <- "mesotrophic"
+    } else if (0.020<limitlo & limitlo<0.050){
+            trophlo <- "eutrophic"
+        } else {
+            trophlo <- "hypereutrophic"
+        }
+#determine where upper bound falls
+if (limitup<0.010){
+    trophup <- "oligotrophic"
+} else if(0.01<limitup & limitup<0.020){
+        trophup <- "mesotrophic"
+    } else if (0.020<limitup & limitup<0.050){
+            trophup <- "eutrophic"
+        } else {
+            trophup <- "hypereutrophic"
+        }
+```
+
+The lower bound falls in the `r trophlo` state and the upper bound falls in the `r trophup`
+state.
+
+
+## Next Steps
+
+With this code I have all the components into R and have confirmed that the output at each step matches the published values.  My goal is to include the ability to interactively explore the model by extending this example into R Shiny.  Immediate next steps could be to:
+ 
+ 1. Add a few additional lakes to allow user to select a lake for analysis.
+ 2. Allow user to vary (slider bars) the values of P source parameters to see the effect on a known lake.  This could allow side-by-side comparison of alternative water quality management actions or targets.
+ 3. Allow user to vary (slider bars) the most likely values for the variables estimated from literature review and best professional judgement.
+ 
+#### Example Interactive Application
+
+```{r, echo=FALSE}
+inputPanel(
+  sliderInput("hvar", label = "Set desired confidence interval:",
+              min = 0.55, max = 0.95, value = 0.90, step = 0.05)
+)
+
+renderText({
+    c = sqrt((-2.25*input$hvar)+2.25)
+    limitlo <- PLk-(c*sTneg)
+    limitup <- PLk+(c*sTpos)
+    #determine where lower bound falls
+    if (limitlo<0.010){
+        trophlo <- "oligotrophic"
+    } else if(0.01<limitlo & limitlo<0.020){
+        trophlo <- "mesotrophic"
+    } else if (0.020<limitlo & limitlo<0.050){
+        trophlo <- "eutrophic"
+    } else {
+        trophlo <- "hypereutrophic"
+    }
+    #determine where upper bound falls
+    if (limitup<0.010){
+        trophup <- "oligotrophic"
+    } else if(0.01<limitup & limitup<0.020){
+        trophup <- "mesotrophic"
+    } else if (0.020<limitup & limitup<0.050){
+        trophup <- "eutrophic"
+    } else {
+        trophup <- "hypereutrophic"
+    }
+    paste0("For the lake Higgins there is a ", input$hvar, " probability that the true phosphorus concentration value falls between ", round(limitlo,4), " mg/L (", trophlo, ") and ", round(limitup,4), " mg/L (", trophup, ").")
+})
+```

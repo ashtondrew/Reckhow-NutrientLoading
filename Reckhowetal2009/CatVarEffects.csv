@@ -1,0 +1,24 @@
+Group,Category,Beta0,Beta1,Beta2
+Crop,Alfalfa,0.645197,-0.125893,
+Crop,Corn,-0.157255,-0.13294,
+Crop,Cotton,-0.056698,-0.101043,
+Crop,Fallow,0.226142,-0.150826,
+Crop,Oats/Wheat,0.195751,0.205736,
+Crop,Pasture/Range,-0.225113,0.039476,
+Crop,Peanuts,0.111403,-0.010232,
+Crop,Rotation,-0.212704,0.318791,
+Crop,Sorghum,-0.526721,-0.022715,
+Soil,B,-0.564179,-0.092124,
+Soil,B and C,0.43821,0.157649,
+Soil,B and D,-0.017252,0.049782,
+Soil,C,0.436505,0.193347,
+Soil,C/D,-0.090889,-0.046704,
+Soil,D,-0.202394,-0.261949,
+Tillage,Conservation,-0.344965,,-0.152716
+Tillage,Conventional,0.071645,,0.0317183
+Tillage,No-Till,0.260853,,0.1154838
+Tillage,Pasture,0.012467,,0.0055195
+Fertilizer,Incorporated,0.46801,0.2216,
+Fertilizer,Injected,-0.59687,-0.28262,
+Fertilizer,Surface Applied,0.39698,0.18797,
+Fertilizer,Other,-0.26811,-0.12695,
